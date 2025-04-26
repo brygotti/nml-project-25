@@ -1,1 +1,1 @@
-EE-452 - Graph-based EEG Analysis
+# EE-452 - Graph-based EEG Analysis
