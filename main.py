@@ -10,8 +10,8 @@ CONFIG = {
     "batch_size": 512,
     "num_epochs": 100,
     "lr": 1e-3,
-    "model": "SimpleLSTM",
-    "model_params": {'input_dim': 19, 'hidden_dim': 64, 'num_layers': 3, 'dropout': 0.3},
+    "model": "EEGNet",
+    "model_params": {'input_dim': 19, 'num_samples': 256, 'dropout': 0.3},
     "criterion_fn": nn.BCEWithLogitsLoss,
     "signal_transform": fft_filtering,
     "k_folds": 5
@@ -24,8 +24,4 @@ if __name__ == "__main__":
     model, final_metrics = train_pipeline(CONFIG, device)
 
     create_submission(CONFIG, model, device)
-
-
-   
-
 

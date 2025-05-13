@@ -3,10 +3,11 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import KFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
+from sklearn.model_selection import StratifiedKFold
 
 from models.ModelWrapper import get_model
 from utils import *
@@ -16,7 +17,21 @@ from utils import *
 # ===============================
 
 def train_one_fold(model, loader, device, config):
-    criterion = config["criterion_fn"]()
+
+    pos_count = sum([y for _, y in loader.dataset])
+    neg_count = len(loader.dataset) - pos_count
+    pos_weight = torch.tensor([neg_count / pos_count]).to(device)
+
+    # add pos_weight to the criterion to handle class imbalance
+    if config["model"] == "EEGNet":
+        # For EEGNet, we use BCEWithLogitsLoss
+        criterion = config["criterion_fn"](pos_weight=pos_weight)
+    else:
+        # For other models, we can use the provided criterion function
+        # Ensure the criterion function is compatible with the model
+        criterion = config["criterion_fn"](t)
+
+
     optimizer = optim.Adam(model.parameters() , lr=config["lr"])
     train_losses = []
 
@@ -26,6 +41,13 @@ def train_one_fold(model, loader, device, config):
         for x_batch, y_batch in loader:
             x_batch = x_batch.float().to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
+
+            # Special case for EEGNet
+            if config["model"] == "EEGNet":
+                if x_batch.dim() == 3:
+                    x_batch = x_batch.unsqueeze(1)  # [batch, 1, input_dim, num_samples]
+                elif x_batch.dim() == 4 and x_batch.shape[1] != 1:
+                    x_batch = x_batch.permute(0, 3, 1, 2)
 
             logits = model(x_batch)
             loss = criterion(logits, y_batch)
@@ -48,27 +70,58 @@ def train_one_fold(model, loader, device, config):
 
 def evaluate_model(model, loader, device):
     model.eval()
-    y_true, y_pred = [], []
+    y_true, y_probs = [], []
 
     with torch.no_grad():
         for x_batch, y_batch in loader:
             x_batch = x_batch.float().to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
 
+            # Special case for EEGNet
+            if model.__class__.__name__ == "EEGNet":
+                if x_batch.dim() == 3:
+                    x_batch = x_batch.unsqueeze(1)
+                elif x_batch.dim() == 4 and x_batch.shape[1] != 1:
+                    x_batch = x_batch.permute(0, 3, 1, 2)
+
             logits = model(x_batch)
-            preds = torch.sigmoid(logits)
-            preds = (preds > 0.5).int()
+            probs = torch.sigmoid(logits).cpu().numpy()
+            # preds = torch.sigmoid(logits)
+            # preds = (preds > 0.5).int()
 
             y_true.extend(y_batch.cpu().numpy())
-            y_pred.extend(preds.cpu().numpy())
+            y_probs.extend(probs)
 
-    y_true = np.array(y_true)
-    y_pred = np.array(y_pred)
+
+    y_true = np.array(y_true).flatten()
+    y_probs = np.array(y_probs).flatten()
+    if len(y_probs) == 0 or len(y_true) == 0:
+        print("No predictions made. Returning default metrics.")
+        return {
+            'accuracy': 0.0,
+            'precision': 0.0,
+            'recall': 0.0,
+            'f1_score': 0.0,
+            'threshold': 0.5
+        }
+
+    best_th, best_f1 = 0.5, 0
+    for th in np.arange(0.1, 0.9, 0.05):
+        y_pred = (y_probs > th).astype(int)
+        f1 = f1_score(y_true, y_pred)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_th = th
+
+    y_pred_final = (y_probs > best_th).astype(int)
+
 
     return {
-        'accuracy': accuracy_score(y_true, y_pred),
-        'precision': precision_score(y_true, y_pred, zero_division=0),
-        'recall': recall_score(y_true, y_pred, zero_division=0)
+        'accuracy': accuracy_score(y_true, y_pred_final),
+        'precision': precision_score(y_true, y_pred_final, zero_division=0),
+        'recall': recall_score(y_true, y_pred_final, zero_division=0),
+        'f1_score': best_f1,
+        'threshold': best_th
     }
 
 
@@ -81,10 +134,19 @@ def train_pipeline(config, device):
     
     dataset = get_dataset(config)
     kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
+    if config["model"] == "EEGNet":
+        y_all = [y for _, y in dataset]
+        kf = StratifiedKFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
 
     all_metrics = []
 
-    for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+
+    if config["model"] == "EEGNet":
+        enum = enumerate(kf.split(dataset, y_all))
+    else:
+        enum = enumerate(kf.split(dataset))
+
+    for fold, (train_idx, val_idx) in enum:
         print(f"\n===== Fold {fold + 1} =====")
 
         train_subset = Subset(dataset, train_idx)
