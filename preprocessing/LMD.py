@@ -1,7 +1,10 @@
 import numpy as np
 from PyLMD import LMD
 
-lmd = LMD()
+lmd = LMD(
+    max_smooth_iteration=1,
+    max_num_pf=3
+)
 
 def lmd_features(x: np.ndarray) -> np.ndarray:
     """
@@ -13,7 +16,7 @@ def lmd_features(x: np.ndarray) -> np.ndarray:
     for i in range(x.shape[0]):
         # Apply LMD to each channel
         PFs, _ = lmd.lmd(x[i])
-        channels.append(PFs[:3]) # Take the first 3 PFs
+        channels.append(PFs)
     channels = np.stack(channels)
     return extract_features(channels)
 
