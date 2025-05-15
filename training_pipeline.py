@@ -90,8 +90,8 @@ def train_pipeline(config, device):
         train_subset = Subset(dataset, train_idx)
         val_subset = Subset(dataset, val_idx)
 
-        train_loader = DataLoader(train_subset, batch_size=config["batch_size"], shuffle=True)
-        val_loader = DataLoader(val_subset, batch_size=config["batch_size"], shuffle=False)
+        train_loader = get_loader(config, train_subset, mode='train')
+        val_loader = get_loader(config, val_subset, mode='val')
 
         # Initialize model
         model= get_model(config["model"], config["model_params"], device)

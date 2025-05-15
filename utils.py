@@ -5,6 +5,7 @@ import os
 import pandas as pd 
 from pathlib import Path
 from seiz_eeg.dataset import EEGDataset
+from datasets.EEGSessionDataset import EEGSessionDataset
 
 from torch.utils.data import DataLoader
 
@@ -28,29 +29,33 @@ def seed_everything(seed: int):
 
 def get_dataset(config, mode='train'):
     clips = pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
-    if mode=='train':
-        dataset = EEGDataset(
-            clips,
-            signals_root=Path(config["data_path"]) / f"{mode}",
-            signal_transform=config["signal_transform"],
-            prefetch=True,
-        )
-    elif mode=='test':
-        dataset = EEGDataset(
-            clips,
-            signals_root=Path(config["data_path"]) / f"{mode}",
-            signal_transform=config["signal_transform"],
-            prefetch=True,
-            return_id=True
-        ) 
+    dataset = EEGDataset(
+        clips,
+        signals_root=Path(config["data_path"]) / f"{mode}",
+        signal_transform=config["signal_transform"],
+        prefetch=True,
+        return_id=(mode == 'test')
+    )
+    if config["batch_size"] == 'session':
+        # If batch size is 'session', we need to group clips by session
+        # and create a custom dataset that handles this
+        dataset = EEGSessionDataset(dataset)
 
     return dataset
 
+def get_loader(config, dataset, mode='train'):
+    return DataLoader(
+        dataset,
+        # Disable automatic batching if batch_size is 'session'
+        batch_size=(None if config["batch_size"] == 'session' else config["batch_size"]),
+        shuffle=(mode == 'train')
+    )
+
 def create_submission(config, model, device, submission_name_csv='submission'):
-    dataset_te=get_dataset(config, 'test')
+    dataset_te = get_dataset(config, mode='test')
 
     # Create DataLoader for the test dataset
-    loader_te = DataLoader(dataset_te, batch_size=512, shuffle=False)
+    loader_te = get_loader(config, dataset_te, mode='test')
     # Generate the submission file for Kaggle
 
     # Set the model to evaluation mode
