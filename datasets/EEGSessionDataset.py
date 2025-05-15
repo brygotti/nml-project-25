@@ -27,5 +27,12 @@ class EEGSessionDataset(Dataset):
 
     def __getitem__(self, idx):
         clip_indices = self.session_to_indices[idx]
-        session_clips = np.stack([self.eeg_dataset[i] for i in clip_indices])
-        return torch.from_numpy(session_clips)
+        dataset_items = [self.eeg_dataset[i] for i in clip_indices]
+        session_clips = torch.from_numpy(np.stack([item[0] for item in dataset_items]))
+        session_labels = [item[1] for item in dataset_items]
+        # Labels might be transformed to a different type (for example if return_id is True or if label_transform is used)
+        # Check if the first label is a string, and if so, don't convert to tensor
+        is_string_label = isinstance(session_labels[0], str)
+        if not is_string_label:
+            session_labels = torch.from_numpy(np.array(session_labels))
+        return session_clips, session_labels
