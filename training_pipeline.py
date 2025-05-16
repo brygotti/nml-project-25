@@ -103,7 +103,7 @@ def train_pipeline(config, device):
         val_loader = get_loader(config, val_subset, mode='val')
 
         # Initialize model
-        model= get_model(config["model"], config["model_params"], device)
+        model= get_model(config["model"], config.get("model_params", {}), device)
 
         # Train
         model, _ = train_one_fold(model, train_loader, device, config)
