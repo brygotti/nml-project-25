@@ -79,11 +79,15 @@ def create_submission(config, model, device, submission_name_csv='submission'):
             logits = model(x_batch)
 
             # Convert logits to predictions.
-            # For binary classification, threshold logits at 0 (adjust this if you use softmax or multi-class).
-            predictions = (logits > 0).int().cpu().numpy()
+            if hasattr(model, 'custom_predict') and callable(model.custom_predict):
+                # Allow for custom prediction logic
+                predictions = model.custom_predict(logits)
+            else:
+                # Assuming sigmoid activation for binary classification
+                predictions = (logits > 0)
 
             # Append predictions and corresponding IDs to the lists
-            all_predictions.extend(predictions.flatten().tolist())
+            all_predictions.extend(predictions.int().cpu().numpy().flatten().tolist())
             all_ids.extend(list(x_ids))
 
     # Create a DataFrame for Kaggle submission with the required format: "id,label"

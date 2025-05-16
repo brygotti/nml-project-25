@@ -56,11 +56,16 @@ def evaluate_model(model, loader, device):
             y_batch = y_batch.float().unsqueeze(1).to(device)
 
             logits = model(x_batch)
-            preds = torch.sigmoid(logits)
-            preds = (preds > 0.5).int()
+
+            if hasattr(model, 'custom_predict') and callable(model.custom_predict):
+                # Allow for custom prediction logic
+                preds = model.custom_predict(logits)
+            else:
+                # Assuming sigmoid activation for binary classification
+                preds = (logits > 0)
 
             y_true.extend(y_batch.cpu().numpy())
-            y_pred.extend(preds.cpu().numpy())
+            y_pred.extend(preds.int().cpu().numpy())
 
     y_true = np.array(y_true)
     y_pred = np.array(y_pred)
