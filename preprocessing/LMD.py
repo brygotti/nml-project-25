@@ -3,6 +3,9 @@ from PyLMD import LMD
 
 lmd = LMD(
     max_smooth_iteration=1,
+    max_envelope_iteration=20,
+    envelope_epsilon=0.1,
+    convergence_epsilon=0.1,
     max_num_pf=3
 )
 
