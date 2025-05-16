@@ -27,6 +27,17 @@ class TemporalBiLSTM(nn.Module):
         logits = self.fc(out).squeeze(-1)  # logits shape: [seq_len, n_channels]
         return logits
     
+    def custom_loss(self, criterion, logits, labels):
+        """
+        logits shape: [seq_len, n_channels]
+        labels shape: [seq_len]
+        """
+        labels = labels.repeat(logits.shape[1])  # Repeat labels for each channel
+        logits = logits.permute(1, 0).flatten()  # Reshape logits to [n_channels * seq_len]
+        loss = criterion(logits, labels) # Compute loss for each channel at once
+
+        return loss
+    
     def custom_predict(self, logits):
         """
         logits shape: [seq_len, n_channels]

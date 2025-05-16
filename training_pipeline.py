@@ -28,7 +28,11 @@ def train_one_fold(model, loader, device, config):
             y_batch = y_batch.float().unsqueeze(1).to(device)
 
             logits = model(x_batch)
-            loss = criterion(logits, y_batch)
+            if hasattr(model, 'custom_loss') and callable(model.custom_loss):
+                # Allow for custom loss logic
+                loss = model.custom_loss(criterion, logits, y_batch)
+            else:
+                loss = criterion(logits, y_batch)
 
             optimizer.zero_grad()
             loss.backward()
