@@ -17,7 +17,12 @@ class EEGSessionDataset(Dataset):
     def _group_indices_by_session(self):
         session_map = {}
         for i, idx in enumerate(self.clips_df.index):
-            patient, session, _ = idx
+            if isinstance(idx, str):
+                parts = idx.split("_")
+                patient = parts[0]
+                session = f"{parts[1]}_{parts[2]}"
+            else:
+                patient, session, _ = idx
             session_id = f"{patient}_{session}"
             session_map.setdefault(session_id, []).append(i)
         return list(session_map.values())
@@ -31,8 +36,8 @@ class EEGSessionDataset(Dataset):
         session_clips = torch.from_numpy(np.stack([item[0] for item in dataset_items]))
         session_labels = [item[1] for item in dataset_items]
         # Labels might be transformed to a different type (for example if return_id is True or if label_transform is used)
-        # Check if the first label is a string, and if so, don't convert to tensor
-        is_string_label = isinstance(session_labels[0], str)
-        if not is_string_label:
+        # Check if the first label is an int and convert to tensor if so
+        is_int_label = isinstance(session_labels[0], (int, np.integer))
+        if is_int_label:
             session_labels = torch.from_numpy(np.array(session_labels))
         return session_clips, session_labels

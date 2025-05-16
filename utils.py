@@ -91,6 +91,10 @@ def create_submission(config, model, device, submission_name_csv='submission'):
             all_ids.extend(list(x_ids))
 
     # Create a DataFrame for Kaggle submission with the required format: "id,label"
+    if all_ids[0].count("_") > 3:
+        # If the ID contains more than 3 underscores, it means the dataset index was in the Kaggle format
+        # And EEGDataset joined all characters with a "_". We need to remove those "_" in between the characters.
+        all_ids = [x_id[::2] for x_id in all_ids]
     submission_df = pd.DataFrame({"id": all_ids, "label": all_predictions})
 
     # Save the DataFrame to a CSV file without an index
