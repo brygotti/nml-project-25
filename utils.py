@@ -33,7 +33,7 @@ def get_dataset(config, mode='train'):
         clips,
         signals_root=Path(config["data_path"]) / f"{mode}",
         signal_transform=config["signal_transform"],
-        prefetch=True,
+        prefetch=False,
         return_id=(mode == 'test')
     )
     if config["batch_size"] == 'session':
