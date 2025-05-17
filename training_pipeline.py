@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import KFold
-from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
@@ -77,7 +77,8 @@ def evaluate_model(model, loader, device):
     return {
         'accuracy': accuracy_score(y_true, y_pred),
         'precision': precision_score(y_true, y_pred, zero_division=0),
-        'recall': recall_score(y_true, y_pred, zero_division=0)
+        'recall': recall_score(y_true, y_pred, zero_division=0),
+        'f1_score': f1_score(y_true, y_pred, zero_division=0)
     }
 
 
@@ -89,34 +90,42 @@ def train_pipeline(config, device):
     seed_everything(42)
     
     dataset = get_dataset(config)
-    kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
 
-    all_metrics = []
+    if config.get("k_folds", None) is not None:
+        kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
+        all_metrics = []
+        for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+            print(f"\n===== Fold {fold + 1} =====")
 
-    for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
-        print(f"\n===== Fold {fold + 1} =====")
+            train_subset = Subset(dataset, train_idx)
+            val_subset = Subset(dataset, val_idx)
 
-        train_subset = Subset(dataset, train_idx)
-        val_subset = Subset(dataset, val_idx)
+            train_loader = get_loader(config, train_subset, mode='train')
+            val_loader = get_loader(config, val_subset, mode='val')
 
-        train_loader = get_loader(config, train_subset, mode='train')
-        val_loader = get_loader(config, val_subset, mode='val')
+            # Initialize model
+            model= get_model(config["model"], config.get("model_params", {}), device)
 
-        # Initialize model
-        model= get_model(config["model"], config.get("model_params", {}), device)
+            # Train
+            model, _ = train_one_fold(model, train_loader, device, config)
 
-        # Train
-        model, _ = train_one_fold(model, train_loader, device, config)
+            # Evaluate
+            metrics = evaluate_model(model, val_loader, device)
+            print(f"Fold {fold + 1} Metrics:", metrics)
+            all_metrics.append(metrics)
 
-        # Evaluate
-        metrics = evaluate_model(model, val_loader, device)
-        print(f"Fold {fold + 1} Metrics:", metrics)
-        all_metrics.append(metrics)
+        # Aggregate metrics across folds
+        avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
+        print("\n=== Average Metrics Across Folds ===")
+        print(avg_metrics)
+    else:
+        print("Skipping K-fold cross validation. Training directly on the full dataset.")
 
-    # Aggregate metrics across folds
-    avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
-    print("\n=== Average Metrics Across Folds ===")
-    print(avg_metrics)
+    # Retrain on the full dataset
+    print(f"\n===== Full Training =====")
+    train_loader = get_loader(config, dataset, mode='train')
+    model = get_model(config["model"], config.get("model_params", {}), device)
+    model, _ = train_one_fold(model, train_loader, device, config)
 
     return model, avg_metrics 
 
