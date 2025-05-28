@@ -1,0 +1,16 @@
+#!/bin/bash
+#SBATCH --nodes 1
+#SBATCH --ntasks 1
+#SBATCH --cpus-per-task 12
+#SBATCH --mem 16G
+#SBATCH --gres=gpu:1
+#SBATCH --time 10:00:00
+#SBATCH --output=./logs/slurm-%j.out
+#SBATCH --account=ee-452
+#SBATCH --qos=ee-452
+
+cd $HOME
+source .virtualenvs/nml/bin/activate
+pip --version
+cd nml-project-25
+python -u store_lmd_preprocessing.py
