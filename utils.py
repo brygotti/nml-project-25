@@ -6,6 +6,7 @@ import pandas as pd
 from pathlib import Path
 from seiz_eeg.dataset import EEGDataset
 from datasets.EEGSessionDataset import EEGSessionDataset
+from datasets.CachedEEGDataset import CachedEEGDataset
 
 from torch.utils.data import DataLoader
 
@@ -29,13 +30,23 @@ def seed_everything(seed: int):
 
 def get_dataset(config, mode='train'):
     clips = pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
-    dataset = EEGDataset(
-        clips,
-        signals_root=Path(config["data_path"]) / f"{mode}",
-        signal_transform=config["signal_transform"],
-        prefetch=True,
-        return_id=(mode == 'test')
-    )
+    if config.get("cached_preprocessing") is not None:
+        dataset = CachedEEGDataset(
+            config["cached_preprocessing"][mode],
+            clips,
+            signals_root=Path(config["data_path"]) / f"{mode}",
+            signal_transform=config.get("signal_transform"),
+            prefetch=True,
+            return_id=(mode == 'test')
+        )
+    else:
+        dataset = EEGDataset(
+            clips,
+            signals_root=Path(config["data_path"]) / f"{mode}",
+            signal_transform=config.get("signal_transform"),
+            prefetch=True,
+            return_id=(mode == 'test')
+        )
     if config["batch_size"] == 'session':
         # If batch size is 'session', we need to group clips by session
         # and create a custom dataset that handles this
