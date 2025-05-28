@@ -49,15 +49,15 @@ for i in train_error_index:
         print(f"Error processing train sample {i} ({y}): {e}")
         train_ids[i] = (y, e)
 
-    with open('tmp/lmd_train_arrays_fixed.npy', 'wb') as f:
+    with open('tmp/lmd_train_arrays.npy', 'wb') as f:
         np.save(f, train_arrays)
-    with open("tmp/lmd_train_ids_fixed.pickle", "wb") as f:
+    with open("tmp/lmd_train_ids.pickle", "wb") as f:
         pickle.dump(train_ids, f)
     print(f"Processed {i}/{len(clips_tr)} train samples")
 
-with open('tmp/lmd_train_arrays_fixed.npy', 'wb') as f:
+with open('tmp/lmd_train_arrays.npy', 'wb') as f:
     np.save(f, train_arrays)
-with open("tmp/lmd_train_ids_fixed.pickle", "wb") as f:
+with open("tmp/lmd_train_ids.pickle", "wb") as f:
     pickle.dump(train_ids, f)
 
 with open('tmp/lmd_test_arrays.npy', 'rb') as f:
@@ -76,13 +76,13 @@ for i in test_error_index:
         print(f"Error processing test sample {i} ({y}): {e}")
         test_ids[i] = (y, e)
 
-    with open('tmp/lmd_test_arrays_fixed.npy', 'wb') as f:
+    with open('tmp/lmd_test_arrays.npy', 'wb') as f:
         np.save(f, test_arrays)
-    with open("tmp/lmd_test_ids_fixed.pickle", "wb") as f:
+    with open("tmp/lmd_test_ids.pickle", "wb") as f:
         pickle.dump(test_ids, f)
     print(f"Processed {i}/{len(clips_te)} test samples")
     
-with open('tmp/lmd_test_arrays_fixed.npy', 'wb') as f:
+with open('tmp/lmd_test_arrays.npy', 'wb') as f:
     np.save(f, test_arrays)
-with open("tmp/lmd_test_ids_fixed.pickle", "wb") as f:
+with open("tmp/lmd_test_ids.pickle", "wb") as f:
     pickle.dump(test_ids, f)
