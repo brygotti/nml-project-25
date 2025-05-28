@@ -18,7 +18,14 @@ def lmd_features(x: np.ndarray) -> np.ndarray:
     channels = []
     for i in range(x.shape[0]):
         # Apply LMD to each channel
-        PFs, _ = lmd.lmd(x[i])
+        if not x[i].any():
+            # Array contains only zeros, lmd will fail, replace with zeros PFs
+            PFs = np.zeros((3, x[i].shape[0]))
+        else:
+            PFs, _ = lmd.lmd(x[i])
+            # Ensure PFs has the shape (3, n_samples)
+            if PFs.shape[0] < 3:
+                PFs = np.pad(PFs, ((0, 3 - PFs.shape[0]), (0, 0)))
         channels.append(PFs)
     channels = np.stack(channels)
     return extract_features(channels)
@@ -32,6 +39,8 @@ def extract_features(channels: np.ndarray) -> np.ndarray:
     Returns:
         The features
     """
+    channels = channels.astype(np.float128)
+    epsilon = 1e-08
     return np.concatenate([
         np.max(channels, axis=-1),
         np.min(channels, axis=-1),
@@ -44,7 +53,7 @@ def extract_features(channels: np.ndarray) -> np.ndarray:
         # Root mean square
         np.sqrt(np.mean(channels**2, axis=-1)),
         # Skewness
-        np.mean((channels - np.mean(channels, axis=-1, keepdims=True))**3, axis=-1) / (np.std(channels, axis=-1)**3),
+        np.mean((channels - np.mean(channels, axis=-1, keepdims=True))**3, axis=-1) / (epsilon + (np.std(channels, axis=-1)**3)),
         # Kurtosis
-        np.mean((channels - np.mean(channels, axis=-1, keepdims=True))**4, axis=-1) / (np.std(channels, axis=-1)**4),
-    ], axis=1)
+        np.mean((channels - np.mean(channels, axis=-1, keepdims=True))**4, axis=-1) / (epsilon + (np.std(channels, axis=-1)**4)),
+    ], axis=1).astype(np.float64)
