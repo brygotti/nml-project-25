@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
+from torchinfo import summary
 
 from models.ModelWrapper import get_model
 from utils import *
@@ -76,9 +77,9 @@ def evaluate_model(model, loader, device):
 
     return {
         'accuracy': accuracy_score(y_true, y_pred),
-        'precision': precision_score(y_true, y_pred, zero_division=0),
-        'recall': recall_score(y_true, y_pred, zero_division=0),
-        'f1_score': f1_score(y_true, y_pred, zero_division=0)
+        'precision': precision_score(y_true, y_pred, average="macro", zero_division=0),
+        'recall': recall_score(y_true, y_pred, average="macro", zero_division=0),
+        'f1_score': f1_score(y_true, y_pred, average="macro", zero_division=0)
     }
 
 
@@ -105,6 +106,9 @@ def train_pipeline(config, device):
 
             # Initialize model
             model= get_model(config["model"], config.get("model_params", {}), device)
+            if fold == 0:
+                print("Model Summary:")
+                print(summary(model))
 
             # Train
             model, _ = train_one_fold(model, train_loader, device, config)
