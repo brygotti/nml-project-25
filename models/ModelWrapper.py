@@ -1,6 +1,6 @@
-
 from models.SimpleLSTM import SimpleLSTM
 from models.EEGNet import EEGNet
+from models.NeuroGNN import NeuroGNN  # ← ajout ici
 
 
 # Add your model here
@@ -14,6 +14,7 @@ def get_model(model_name='SimpleLSTM', model_params=None, device=None):
             dropout=model_params.get("dropout", 0.5),
             num_classes=1
         ).to(device)
+    elif model_name == 'NeuroGNN':  # ← ajout ici
+        return NeuroGNN(**model_params).to(device)
     else:
         raise ValueError(f"Unsupported model: {model_name}")
-

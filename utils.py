@@ -5,8 +5,38 @@ import os
 import pandas as pd 
 from pathlib import Path
 from seiz_eeg.dataset import EEGDataset
+from preprocessing.GraphEEGDataset import GraphEEGDataset
 
 from torch.utils.data import DataLoader
+from torch_geometric.data import Batch
+
+def get_distance_edge_index():
+    """
+    Create a fully connected graph with 19 electrodes.
+    Each electrode is connected to every other electrode.
+    """
+    n = 19  # 19 electrodes
+    src = []
+    dst = []
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                src.append(i)
+                dst.append(j)
+    edge_index = np.array([src, dst])
+    return edge_index
+
+
+
+def graph_sequence_collate(batch):
+    """
+    Collate function for batching sequences of graphs.
+    Each item in the batch is a tuple (sequence of graphs, label).
+    """
+    graph_sequences, labels = zip(*batch)  # batch = list of (sequence of graphs, label)
+    transposed = list(zip(*graph_sequences))  # T lists of graphs
+    batched_graphs = [Batch.from_data_list(graphs_at_t) for graphs_at_t in transposed]
+    return batched_graphs, torch.tensor(labels, dtype=torch.float32)
 
 
 def seed_everything(seed: int):
@@ -28,6 +58,15 @@ def seed_everything(seed: int):
 
 def get_dataset(config, mode='train'):
     clips = pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
+    if config["model"] == "NeuroGNN":
+        edge_index = get_distance_edge_index()  # charge un edge_index [2, E]
+        GraphEEGDataset(
+            clips_df=clips,
+            edge_index=edge_index,
+            transform_fn=config["signal_transform"],
+            segment_len=config.get("segment_len", 64),
+            base_path=Path(config["data_path"]) / mode  # ← 'train' ou 'test'
+        )
     if mode=='train':
         dataset = EEGDataset(
             clips,

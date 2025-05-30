@@ -23,7 +23,7 @@ def train_one_fold(model, loader, device, config):
     pos_weight = torch.tensor([neg_count / pos_count]).to(device)
 
     # add pos_weight to the criterion to handle class imbalance
-    if config["model"] == "EEGNet":
+    if config["model"] == "EEGNet" or config["model"] == "NeuroGNN":
         # For EEGNet, we use BCEWithLogitsLoss
         criterion = config["criterion_fn"](pos_weight=pos_weight)
     else:
@@ -39,17 +39,23 @@ def train_one_fold(model, loader, device, config):
     for epoch in tqdm(range(config["num_epochs"]), desc="Epochs"):
         running_loss = 0.0
         for x_batch, y_batch in loader:
-            x_batch = x_batch.float().to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
 
-            # Special case for EEGNet
-            if config["model"] == "EEGNet":
-                if x_batch.dim() == 3:
-                    x_batch = x_batch.unsqueeze(1)  # [batch, 1, input_dim, num_samples]
-                elif x_batch.dim() == 4 and x_batch.shape[1] != 1:
-                    x_batch = x_batch.permute(0, 3, 1, 2)
+            if config["model"] == "NeuroGNN":
+                graph_seq = [g.to(device) for g in x_batch]
+                logits = model(graph_seq)
+            else:
+                x_batch = x_batch.float().to(device)
 
-            logits = model(x_batch)
+                # Special case for EEGNet
+                if config["model"] == "EEGNet":
+                    if x_batch.dim() == 3:
+                        x_batch = x_batch.unsqueeze(1)
+                    elif x_batch.dim() == 4 and x_batch.shape[1] != 1:
+                        x_batch = x_batch.permute(0, 3, 1, 2)
+
+                logits = model(x_batch)
+
             loss = criterion(logits, y_batch)
 
             optimizer.zero_grad()
@@ -74,25 +80,23 @@ def evaluate_model(model, loader, device):
 
     with torch.no_grad():
         for x_batch, y_batch in loader:
-            x_batch = x_batch.float().to(device)
             y_batch = y_batch.float().unsqueeze(1).to(device)
 
-            # Special case for EEGNet
-            if model.__class__.__name__ == "EEGNet":
-                if x_batch.dim() == 3:
-                    x_batch = x_batch.unsqueeze(1)
-                elif x_batch.dim() == 4 and x_batch.shape[1] != 1:
-                    x_batch = x_batch.permute(0, 3, 1, 2)
+            if model.__class__.__name__ == "NeuroGNN":
+                graph_seq = [g.to(device) for g in x_batch]
+                logits = model(graph_seq)
+            else:
+                x_batch = x_batch.float().to(device)
 
-            logits = model(x_batch)
+                if model.__class__.__name__ == "EEGNet":
+                    if x_batch.dim() == 3:
+                        x_batch = x_batch.unsqueeze(1)
+                    elif x_batch.dim() == 4 and x_batch.shape[1] != 1:
+                        x_batch = x_batch.permute(0, 3, 1, 2)
+
+                logits = model(x_batch)
+
             probs = torch.sigmoid(logits).cpu().numpy()
-            # preds = torch.sigmoid(logits)
-            # preds = (preds > 0.5).int()
-
-            y_true.extend(y_batch.cpu().numpy())
-            y_probs.extend(probs)
-
-
     y_true = np.array(y_true).flatten()
     y_probs = np.array(y_probs).flatten()
     if len(y_probs) == 0 or len(y_true) == 0:
@@ -133,18 +137,19 @@ def train_pipeline(config, device):
     seed_everything(42)
     
     dataset = get_dataset(config)
-    kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
-    if config["model"] == "EEGNet":
+    
+    if config["model"] == "NeuroGNN":
         y_all = [y for _, y in dataset]
         kf = StratifiedKFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
+    elif config["model"] == "EEGNet":
+        y_all = [y for _, y in dataset]
+        kf = StratifiedKFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
+    else:
+        kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
 
     all_metrics = []
 
-
-    if config["model"] == "EEGNet":
-        enum = enumerate(kf.split(dataset, y_all))
-    else:
-        enum = enumerate(kf.split(dataset))
+    enum = enumerate(kf.split(dataset, y_all) if config["model"] in ["EEGNet", "NeuroGNN"] else kf.split(dataset))
 
     for fold, (train_idx, val_idx) in enum:
         print(f"\n===== Fold {fold + 1} =====")
@@ -152,11 +157,16 @@ def train_pipeline(config, device):
         train_subset = Subset(dataset, train_idx)
         val_subset = Subset(dataset, val_idx)
 
-        train_loader = DataLoader(train_subset, batch_size=config["batch_size"], shuffle=True)
-        val_loader = DataLoader(val_subset, batch_size=config["batch_size"], shuffle=False)
+        # GNN requires custom collate function
+        if config["model"] == "NeuroGNN":
+            train_loader = DataLoader(train_subset, batch_size=config["batch_size"], shuffle=True, collate_fn=graph_sequence_collate)
+            val_loader = DataLoader(val_subset, batch_size=config["batch_size"], shuffle=False, collate_fn=graph_sequence_collate)
+        else:
+            train_loader = DataLoader(train_subset, batch_size=config["batch_size"], shuffle=True)
+            val_loader = DataLoader(val_subset, batch_size=config["batch_size"], shuffle=False)
 
         # Initialize model
-        model= get_model(config["model"], config["model_params"], device)
+        model = get_model(config["model"], config["model_params"], device)
 
         # Train
         model, _ = train_one_fold(model, train_loader, device, config)
