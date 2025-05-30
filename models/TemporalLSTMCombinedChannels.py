@@ -9,10 +9,8 @@ class TemporalLSTMCombinedChannels(nn.Module):
         https://link.springer.com/article/10.1007/s40747-021-00627-z (Two-layer LSTM network-based prediction of epileptic seizures using EEG spectral features)
         """
         super().__init__()
-        self.lstm = nn.Sequential(OrderedDict([
-            ('LSTM1', nn.LSTM(input_dim, hidden_dims[0])),
-            ('LSTM2', nn.LSTM(hidden_dims[0], hidden_dims[1]))
-        ]))
+        self.lstm1 = nn.LSTM(input_dim, hidden_dims[0])
+        self.lstm2 = nn.LSTM(hidden_dims[0], hidden_dims[1])
         self.fc1 = nn.Linear(hidden_dims[1], hidden_dims[1])
         self.dropout = nn.Dropout(dropout)
         self.fc2 = nn.Linear(hidden_dims[1], fc2_dim)
@@ -25,7 +23,8 @@ class TemporalLSTMCombinedChannels(nn.Module):
         Returns:
             out shape: [seq_len, 1]
         """
-        out, (h_n, c_n) = self.lstm(x)  # out shape: [seq_len, hidden_dims[1]]
+        out, (h_n, c_n) = self.lstm1(x)  # out shape: [seq_len, hidden_dims[0]]
+        out, (h_n, c_n) = self.lstm2(out) # out shape: [seq_len, hidden_dims[1]]
         out = self.fc1(out)
         out = self.dropout(out)
         out = self.fc2(out)
