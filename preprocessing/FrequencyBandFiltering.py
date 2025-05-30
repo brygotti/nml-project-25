@@ -24,7 +24,7 @@ def frequency_bands_features(x: np.ndarray) -> np.ndarray:
         mean_amplitude(alpha),
         mean_amplitude(beta),
         mean_amplitude(gamma),
-    ], axis=1).astype(np.float64)
+    ], axis=1).astype(np.float64).flatten()
 
 def power(x: np.ndarray) -> np.ndarray:
     """Compute the power of the signal"""

@@ -18,7 +18,10 @@ from utils import *
 
 def train_one_fold(model, loader, device, config):
     criterion = config["criterion_fn"]()
-    optimizer = optim.Adam(model.parameters() , lr=config["lr"])
+    if config.get("optimizer") is not None:
+        optimizer = config["optimizer"](model.parameters())
+    else:
+        optimizer = optim.Adam(model.parameters() , lr=config["lr"])
     train_losses = []
 
     model.train()
