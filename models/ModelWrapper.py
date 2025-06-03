@@ -1,16 +1,25 @@
 from models.SimpleLSTM import SimpleLSTM
 from models.TemporalBiLSTM import TemporalBiLSTM
 from models.TemporalLSTMCombinedChannels import TemporalLSTMCombinedChannels
+from torchinfo import summary
 
 
 # Add your model here
+print_summary = True
 def get_model(model_name='SimpleLSTM', model_params=None, device=None):
+    global print_summary
     if model_name == 'SimpleLSTM':
-        return SimpleLSTM(**model_params).to(device)
+        model = SimpleLSTM(**model_params).to(device)
     elif model_name == 'TemporalBiLSTM':
-        return TemporalBiLSTM(**model_params).to(device)
+        model = TemporalBiLSTM(**model_params).to(device)
     elif model_name == 'TemporalLSTMCombinedChannels':
-        return TemporalLSTMCombinedChannels(**model_params).to(device)
+        model = TemporalLSTMCombinedChannels(**model_params).to(device)
     else:
         raise ValueError(f"Unsupported model: {model_name}")
+    
+    if print_summary:
+        print(f"Model summary for {model_name}:")
+        print(summary(model))
+        print_summary = False  # Set to False after the first call to avoid repeated printing
+    return model
 

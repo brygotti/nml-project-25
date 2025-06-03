@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, Subset
+from torch.utils.data import DataLoader, Subset, random_split
 from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import pandas as pd
@@ -16,39 +16,50 @@ from utils import *
 # Training Function
 # ===============================
 
-def train_one_fold(model, loader, device, config):
-    criterion = config["criterion_fn"]()
-    if config.get("optimizer") is not None:
-        optimizer = config["optimizer"](model.parameters())
-    else:
-        optimizer = optim.Adam(model.parameters() , lr=config["lr"])
-    train_losses = []
+def train_one_epoch(model, criterion, optimizer, loader, device):
 
     model.train()
-    for epoch in tqdm(range(config["num_epochs"]), desc="Epochs"):
-        running_loss = 0.0
-        for x_batch, y_batch in loader:
-            x_batch = x_batch.float().to(device)
-            y_batch = y_batch.float().unsqueeze(1).to(device)
+    running_loss = 0.0
+    for x_batch, y_batch in loader:
+        x_batch = x_batch.float().to(device)
+        y_batch = y_batch.float().unsqueeze(1).to(device)
 
-            logits = model(x_batch)
-            if hasattr(model, 'custom_loss') and callable(model.custom_loss):
-                # Allow for custom loss logic
-                loss = model.custom_loss(criterion, logits, y_batch)
-            else:
-                loss = criterion(logits, y_batch)
+        logits = model(x_batch)
+        if hasattr(model, 'custom_loss') and callable(model.custom_loss):
+            # Allow for custom loss logic
+            loss = model.custom_loss(criterion, logits, y_batch)
+        else:
+            loss = criterion(logits, y_batch)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-            running_loss += loss.item()
+        running_loss += loss.item()
 
-        avg_loss = running_loss / len(loader)
-        train_losses.append(avg_loss)
+    avg_loss = running_loss / len(loader)
 
-    return model, train_losses
+    return avg_loss
 
+class EarlyStopping:
+    def __init__(self, patience, delta_tolerance, greater_is_better):
+        self.patience = patience
+        self.delta_tolerance = delta_tolerance
+        self.greater_is_better = greater_is_better
+        self.counter = 0
+        self.min_metric = float('inf')
+
+    def __call__(self, metric):
+        if self.greater_is_better:
+            metric = -metric
+        if metric < self.min_metric:
+            self.min_metric = metric
+            self.counter = 0
+        elif metric > (self.min_metric + self.delta_tolerance):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
 
 # ===============================
 # Evaluation Function
@@ -99,24 +110,23 @@ def train_pipeline(config, device):
         kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
         all_metrics = []
         for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+            model = get_model(config["model"], config.get("model_params", {}), device)
+            criterion = get_criterion(config)
+            optimizer = get_optimizer(model, config)
+
             print(f"\n===== Fold {fold + 1} =====")
-
-            train_subset = Subset(dataset, train_idx)
-            val_subset = Subset(dataset, val_idx)
-
-            train_loader = get_loader(config, train_subset, mode='train')
-            val_loader = get_loader(config, val_subset, mode='val')
-
-            # Initialize model
-            model= get_model(config["model"], config.get("model_params", {}), device)
-            if fold == 0:
-                print("Model Summary:")
-                print(summary(model))
-
             # Train
-            model, _ = train_one_fold(model, train_loader, device, config)
+            train_subset = Subset(dataset, train_idx)
+            train_loader = get_loader(config, train_subset, mode='train')
+            train_losses = []
+            for epoch in tqdm(range(config["num_epochs"]), desc="Epochs"):
+                avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+                train_losses.append(avg_loss)
+            # TODO: plot train_losses ?
 
             # Evaluate
+            val_subset = Subset(dataset, val_idx)
+            val_loader = get_loader(config, val_subset, mode='val')
             metrics = evaluate_model(model, val_loader, device)
             print(f"Fold {fold + 1} Metrics:", metrics)
             all_metrics.append(metrics)
@@ -130,11 +140,54 @@ def train_pipeline(config, device):
 
     # Retrain on the full dataset
     print(f"\n===== Full Training =====")
+    if config.get("early_stopping", None) is not None:
+        print(f"Estimating number of epochs with early stopping on {config['early_stopping']['validation_size']} of data for a max of {config['early_stopping']['max_epochs']} epochs.")
+        early_stopping = EarlyStopping(patience=config["early_stopping"]["patience"], 
+                                       delta_tolerance=config["early_stopping"]["delta_tolerance"],
+                                       greater_is_better=config["early_stopping"]["greater_is_better"])
+        model = get_model(config["model"], config.get("model_params", {}), device)
+        criterion = get_criterion(config)
+        optimizer = get_optimizer(model, config)
+        train_subset, val_subset = random_split(dataset, [1 - config["early_stopping"]["validation_size"], config["early_stopping"]["validation_size"]])
+        train_loader = get_loader(config, train_subset, mode='train')
+        val_loader = get_loader(config, val_subset, mode='val')
+
+        train_losses = []
+        all_metrics = []
+        for epoch in tqdm(range(config["early_stopping"]["max_epochs"]), desc="Epochs"):
+            avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+            train_losses.append(avg_loss)
+            metrics = evaluate_model(model, val_loader, device)
+            all_metrics.append(metrics)
+            metric_name = config["early_stopping"]["metric"]
+            if early_stopping(metrics[metric_name]):
+                # Set to previous epoch
+                print(f"\nEarly stopping triggered at epoch {epoch + 1}.")
+                break
+        # TODO: plot train_losses ?
+        early_stopping_metrics = [m[metric_name] for m in all_metrics]
+        best_idx = np.argmax(early_stopping_metrics) if config["early_stopping"]["greater_is_better"] else np.argmin(early_stopping_metrics)
+        best_metrics = all_metrics[best_idx]
+        print("\n=== Best Metrics During Early Stopping ===")
+        print(best_metrics)
+        full_training_epochs = best_idx + 1
+    else:
+        print("Skipping early stopping epochs estimation.")
+        full_training_epochs = config["num_epochs"]
+
+    print(f"Training on the full dataset for {full_training_epochs} epochs.")
     train_loader = get_loader(config, dataset, mode='train')
     model = get_model(config["model"], config.get("model_params", {}), device)
-    model, _ = train_one_fold(model, train_loader, device, config)
+    criterion = get_criterion(config)
+    optimizer = get_optimizer(model, config)
 
-    return model, avg_metrics 
+    train_losses = []
+    for epoch in tqdm(range(full_training_epochs), desc="Epochs"):
+        avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+        train_losses.append(avg_loss)
+    # TODO: plot train_losses ?
+
+    return model 
 
 
 

@@ -9,6 +9,7 @@ from datasets.EEGSessionDataset import EEGSessionDataset
 from datasets.CachedEEGDataset import CachedEEGDataset
 
 from torch.utils.data import DataLoader
+from torch import optim
 
 
 def seed_everything(seed: int):
@@ -61,6 +62,17 @@ def get_loader(config, dataset, mode='train'):
         batch_size=(None if config["batch_size"] == 'session' else config["batch_size"]),
         shuffle=(mode == 'train')
     )
+
+def get_criterion(config):
+    return config["criterion_fn"]()
+
+def get_optimizer(model, config):
+    if config.get("optimizer") is not None:
+        optimizer = config["optimizer"](model.parameters())
+    else:
+        optimizer = optim.Adam(model.parameters() , lr=config["lr"])
+
+    return optimizer
 
 def create_submission(config, model, device, submission_name_csv='submission'):
     dataset_te = get_dataset(config, mode='test')
