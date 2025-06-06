@@ -7,6 +7,8 @@ from pathlib import Path
 from seiz_eeg.dataset import EEGDataset
 from datasets.EEGSessionDataset import EEGSessionDataset
 from datasets.CachedEEGDataset import CachedEEGDataset
+from sklearn.model_selection import train_test_split
+
 
 from torch.utils.data import DataLoader
 from torch import optim
@@ -54,6 +56,45 @@ def get_dataset(config, mode='train'):
         dataset = EEGSessionDataset(dataset)
 
     return dataset
+
+def get_dataset_split(config, mode='train'):
+
+    if config.get("split_session") ==True:
+
+        clips =pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
+        clips = clips.reset_index()
+        session_ids = clips['session'].unique()
+
+        train_sessions, val_sessions = train_test_split(
+            session_ids, test_size=0.2, random_state=42
+        )
+
+        train_df = clips[clips['session'].isin(train_sessions)]
+        val_df = clips[clips['session'].isin(val_sessions)]
+
+        clips_tr = train_df.set_index(["patient", "session", "segment"])
+        clips_val =val_df.set_index(["patient", "session", "segment"])
+
+ 
+ 
+        train_dataset = EEGDataset(
+            clips_tr,
+            signals_root=Path(config["data_path"]) / f"{mode}",
+            signal_transform=config.get("signal_transform"),
+            prefetch=True,
+            return_id=(mode == 'test')
+        )
+
+        val_dataset = EEGDataset(
+            clips_val,
+            signals_root=Path(config["data_path"]) / f"{mode}",
+            signal_transform=config.get("signal_transform"),
+            prefetch=True,
+            return_id=(mode == 'test')
+        )
+    
+        return train_dataset, val_dataset 
+ 
 
 def get_loader(config, dataset, mode='train'):
     return DataLoader(
