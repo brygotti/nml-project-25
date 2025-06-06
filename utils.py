@@ -59,25 +59,24 @@ def get_dataset(config, mode='train'):
 
 def get_dataset_split(config, mode='train'):
 
-    if config.get("split_session") ==True:
 
-        clips =pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
-        clips = clips.reset_index()
-        session_ids = clips['session'].unique()
+    clips =pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
+    clips = clips.reset_index()
+    session_ids = clips['session'].unique()
 
-        train_sessions, val_sessions = train_test_split(
+    train_sessions, val_sessions = train_test_split(
             session_ids, test_size=0.2, random_state=42
         )
 
-        train_df = clips[clips['session'].isin(train_sessions)]
-        val_df = clips[clips['session'].isin(val_sessions)]
+    train_df = clips[clips['session'].isin(train_sessions)]
+    val_df = clips[clips['session'].isin(val_sessions)]
 
-        clips_tr = train_df.set_index(["patient", "session", "segment"])
-        clips_val =val_df.set_index(["patient", "session", "segment"])
+    clips_tr = train_df.set_index(["patient", "session", "segment"])
+    clips_val =val_df.set_index(["patient", "session", "segment"])
 
  
  
-        train_dataset = EEGDataset(
+    train_dataset = EEGDataset(
             clips_tr,
             signals_root=Path(config["data_path"]) / f"{mode}",
             signal_transform=config.get("signal_transform"),
@@ -85,7 +84,7 @@ def get_dataset_split(config, mode='train'):
             return_id=(mode == 'test')
         )
 
-        val_dataset = EEGDataset(
+    val_dataset = EEGDataset(
             clips_val,
             signals_root=Path(config["data_path"]) / f"{mode}",
             signal_transform=config.get("signal_transform"),
@@ -93,7 +92,7 @@ def get_dataset_split(config, mode='train'):
             return_id=(mode == 'test')
         )
     
-        return train_dataset, val_dataset 
+    return train_dataset, val_dataset 
  
 
 def get_loader(config, dataset, mode='train'):
