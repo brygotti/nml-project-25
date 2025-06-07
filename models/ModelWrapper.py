@@ -23,7 +23,7 @@ def get_model(model_name='SimpleLSTM', model_params=None, device=None):
     model = model.to(device)
     if print_summary:
         print(f"Model summary for {model_name}:")
-        print(summary(model))
+        summary(model)
         print_summary = False  # Set to False after the first call to avoid repeated printing
     return model
 

@@ -6,11 +6,12 @@ import pandas as pd
 from pathlib import Path
 from seiz_eeg.dataset import EEGDataset
 from tqdm import tqdm
-from datasets.EEGSessionDataset import EEGSessionDataset
+from sklearn.model_selection import KFold
+from datasets.EEGSessionDataset import EEGSessionDataset, group_indices_by_session
 from datasets.CachedEEGDataset import CachedEEGDataset
 from datasets.GraphDataset import GraphDataset
 
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset, random_split
 from torch import optim
 
 from torch_geometric.data import Data
@@ -72,8 +73,40 @@ def get_dataset(config, mode='train'):
 
     return dataset
 
+def flatten(lst: list[list[int]]) -> list:
+    return sum(lst, [])
+
+def split_dataset_by_session(dataset: EEGDataset | GraphDataset | EEGSessionDataset, lengths):
+    if isinstance(dataset, EEGSessionDataset):
+        # Normal split is ok since EEGSessionDataset already groups by session
+        return random_split(dataset, lengths)
+    
+    print("Splitting dataset by session to avoid data leakage.")
+    if isinstance(dataset, GraphDataset):
+        eeg_dataset = dataset.dataset
+    else:
+        eeg_dataset = dataset
+    session_to_indices = group_indices_by_session(eeg_dataset.clips_df)
+    split_indices = [flatten(list(s)) for s in random_split(session_to_indices, lengths)]
+    return [Subset(dataset, indices) for indices in split_indices]
+
+def k_fold_by_session(kf: KFold, dataset: EEGDataset | GraphDataset | EEGSessionDataset):
+    if isinstance(dataset, EEGSessionDataset):
+        # Normal split is ok since EEGSessionDataset already groups by session
+        return kf.split(dataset)
+
+    print("Splitting dataset by session to avoid data leakage.")
+    if isinstance(dataset, GraphDataset):
+        eeg_dataset = dataset.dataset
+    else:
+        eeg_dataset = dataset
+    session_to_indices = group_indices_by_session(eeg_dataset.clips_df)
+    split_indices = [(flatten([session_to_indices[i] for i in train]), flatten([session_to_indices[i] for i in test])) for train, test in kf.split(session_to_indices)]
+    
+    return split_indices
+
 def prepare_batch(batch, device):
-    if isinstance(batch, tuple):
+    if isinstance(batch, (tuple, list)) and len(batch) == 2:
         x_batch, y_batch = batch
         x_batch = x_batch.float().to(device)
         if isinstance(y_batch, torch.Tensor):
@@ -87,6 +120,7 @@ def prepare_batch(batch, device):
         batch_x = batch
         batch_y = batch.y
     else:
+        print(batch)
         raise ValueError(f"Unsupported batch type: {type(batch)}. Expected tuple or Data object.")
 
     return batch_x, batch_y

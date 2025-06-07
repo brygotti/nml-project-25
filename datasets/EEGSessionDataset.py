@@ -1,7 +1,21 @@
+import pandas as pd
 from torch.utils.data import Dataset
 from seiz_eeg.dataset import EEGDataset
 import numpy as np
 import torch
+
+def group_indices_by_session(clips_df: pd.DataFrame) -> list[list[int]]:
+    session_map = {}
+    for i, idx in enumerate(clips_df.index):
+        if isinstance(idx, str):
+            parts = idx.split("_")
+            patient = parts[0]
+            session = f"{parts[1]}_{parts[2]}"
+        else:
+            patient, session, _ = idx
+        session_id = f"{patient}_{session}"
+        session_map.setdefault(session_id, []).append(i)
+    return list(session_map.values())
 
 class EEGSessionDataset(Dataset):
     def __init__(self, eeg_dataset: EEGDataset):
@@ -12,20 +26,7 @@ class EEGSessionDataset(Dataset):
         """
         self.eeg_dataset = eeg_dataset
         self.clips_df = eeg_dataset.clips_df
-        self.session_to_indices = self._group_indices_by_session()
-
-    def _group_indices_by_session(self):
-        session_map = {}
-        for i, idx in enumerate(self.clips_df.index):
-            if isinstance(idx, str):
-                parts = idx.split("_")
-                patient = parts[0]
-                session = f"{parts[1]}_{parts[2]}"
-            else:
-                patient, session, _ = idx
-            session_id = f"{patient}_{session}"
-            session_map.setdefault(session_id, []).append(i)
-        return list(session_map.values())
+        self.session_to_indices = group_indices_by_session(self.clips_df)
 
     def __len__(self):
         return len(self.session_to_indices)

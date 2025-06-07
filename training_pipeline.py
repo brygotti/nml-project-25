@@ -10,6 +10,7 @@ import numpy as np
 from torchinfo import summary
 
 from models.ModelWrapper import get_model
+from datasets.EEGSessionDataset import EEGSessionDataset
 from utils import *
 
 # ===============================
@@ -107,7 +108,7 @@ def train_pipeline(config, device):
     if config.get("k_folds", None) is not None:
         kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
         all_metrics = []
-        for fold, (train_idx, val_idx) in enumerate(kf.split(dataset)):
+        for fold, (train_idx, val_idx) in enumerate(k_fold_by_session(kf, dataset)):
             model = get_model(config["model"], config.get("model_params", {}), device)
             criterion = get_criterion(config)
             optimizer = get_optimizer(model, config)
@@ -146,7 +147,7 @@ def train_pipeline(config, device):
         model = get_model(config["model"], config.get("model_params", {}), device)
         criterion = get_criterion(config)
         optimizer = get_optimizer(model, config)
-        train_subset, val_subset = random_split(dataset, [1 - config["early_stopping"]["validation_size"], config["early_stopping"]["validation_size"]])
+        train_subset, val_subset = split_dataset_by_session(dataset, [1 - config["early_stopping"]["validation_size"], config["early_stopping"]["validation_size"]])
         train_loader = get_loader(config, train_subset, mode='train')
         val_loader = get_loader(config, val_subset, mode='val')
 
