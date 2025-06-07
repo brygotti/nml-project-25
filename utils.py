@@ -5,11 +5,16 @@ import os
 import pandas as pd 
 from pathlib import Path
 from seiz_eeg.dataset import EEGDataset
+from tqdm import tqdm
 from datasets.EEGSessionDataset import EEGSessionDataset
 from datasets.CachedEEGDataset import CachedEEGDataset
+from datasets.GraphDataset import GraphDataset
 
 from torch.utils.data import DataLoader
 from torch import optim
+
+from torch_geometric.data import Data
+from torch_geometric.loader import DataLoader as PygDataLoader
 
 
 def seed_everything(seed: int):
@@ -53,9 +58,48 @@ def get_dataset(config, mode='train'):
         # and create a custom dataset that handles this
         dataset = EEGSessionDataset(dataset)
 
+    if config.get("generate_graph", None) is not None:
+        if not isinstance(dataset, EEGDataset):
+            # TODO: we can add support for EEGSessionDataset in the future
+            raise ValueError("Graph generation is only supported for EEGDataset, not other datasets like EEGSessionDataset. Please do not use 'session' batch size if you want to generate a graph.")
+        
+        dataset = GraphDataset(
+            root=config["graph_cache_name"],
+            dataset=dataset,
+            generate_graphs=config["generate_graph"],
+            mode=mode
+        )
+
     return dataset
 
+def prepare_batch(batch, device):
+    if isinstance(batch, tuple):
+        x_batch, y_batch = batch
+        x_batch = x_batch.float().to(device)
+        if isinstance(y_batch, torch.Tensor):
+            y_batch = y_batch.float().unsqueeze(1).to(device)    
+    elif isinstance(batch, Data):
+        batch = batch.to(device)
+        batch.x = batch.x.float()
+        is_list_of_ints = isinstance(batch.y, list) and isinstance(batch.y[0], (int, np.integer))
+        if is_list_of_ints:
+            batch.y = torch.tensor(batch.y).float().unsqueeze(1).to(device)
+        batch_x = batch
+        batch_y = batch.y
+    else:
+        raise ValueError(f"Unsupported batch type: {type(batch)}. Expected tuple or Data object.")
+
+    return batch_x, batch_y
+    
+
 def get_loader(config, dataset, mode='train'):
+    if isinstance(dataset[0], Data):
+        # If dataset is made of PyG Data objects, use PyG DataLoader
+        return PygDataLoader(
+            dataset,
+            batch_size=(None if config["batch_size"] == 'session' else config["batch_size"]),
+            shuffle=(mode == 'train')
+        )
     return DataLoader(
         dataset,
         # Disable automatic batching if batch_size is 'session'
@@ -93,10 +137,7 @@ def create_submission(config, model, device, submission_name_csv='submission'):
         for batch in loader_te:
             # Assume each batch returns a tuple (x_batch, sample_id)
             # If your dataset does not provide IDs, you can generate them based on the batch index.
-            x_batch, x_ids = batch
-
-            # Move the input data to the device (GPU or CPU)
-            x_batch = x_batch.float().to(device)
+            x_batch, x_ids = prepare_batch(batch, device)
 
             # Perform the forward pass to get the model's output logits
             logits = model(x_batch)

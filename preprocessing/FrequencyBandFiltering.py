@@ -1,6 +1,6 @@
 import numpy as np
 
-def frequency_bands_features(x: np.ndarray) -> np.ndarray:
+def frequency_bands_features(x: np.ndarray, flatten=True) -> np.ndarray:
     """Implement feature extraction of the following paper:
     https://link.springer.com/article/10.1007/s40747-021-00627-z
     """
@@ -13,7 +13,7 @@ def frequency_bands_features(x: np.ndarray) -> np.ndarray:
     beta = x[int(12 * win_len // 250) : 30 * win_len // 250].T
     gamma = x[int(30 * win_len // 250) :].T
 
-    return np.concatenate([
+    out = np.concatenate([
         power(delta),
         power(theta),
         power(alpha),
@@ -24,7 +24,11 @@ def frequency_bands_features(x: np.ndarray) -> np.ndarray:
         mean_amplitude(alpha),
         mean_amplitude(beta),
         mean_amplitude(gamma),
-    ], axis=1).astype(np.float64).flatten()
+    ], axis=1).astype(np.float64)
+
+    if flatten:
+        out = out.flatten()
+    return out
 
 def power(x: np.ndarray) -> np.ndarray:
     """Compute the power of the signal"""

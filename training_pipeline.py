@@ -20,9 +20,8 @@ def train_one_epoch(model, criterion, optimizer, loader, device):
 
     model.train()
     running_loss = 0.0
-    for x_batch, y_batch in loader:
-        x_batch = x_batch.float().to(device)
-        y_batch = y_batch.float().unsqueeze(1).to(device)
+    for batch in loader:
+        x_batch, y_batch = prepare_batch(batch, device)
 
         logits = model(x_batch)
         if hasattr(model, 'custom_loss') and callable(model.custom_loss):
@@ -70,9 +69,8 @@ def evaluate_model(model, loader, device):
     y_true, y_pred = [], []
 
     with torch.no_grad():
-        for x_batch, y_batch in loader:
-            x_batch = x_batch.float().to(device)
-            y_batch = y_batch.float().unsqueeze(1).to(device)
+        for batch in loader:
+            x_batch, y_batch = prepare_batch(batch, device)
 
             logits = model(x_batch)
 

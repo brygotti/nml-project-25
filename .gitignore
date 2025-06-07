@@ -3,3 +3,5 @@ submissions/*
 
 __pycache__/
 *.pyc
+
+tmp/
