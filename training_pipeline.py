@@ -8,6 +8,8 @@ import pandas as pd
 from tqdm import tqdm
 import numpy as np
 from torchinfo import summary
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
 from models.ModelWrapper import get_model
 from utils import *
@@ -175,6 +177,9 @@ def train_pipeline(config, device):
         print("Skipping early stopping epochs estimation.")
         full_training_epochs = config["num_epochs"]
 
+    
+    
+
     print(f"Training on the full dataset for {full_training_epochs} epochs.")
     train_loader = get_loader(config, dataset, mode='train')
     model = get_model(config["model"], config.get("model_params", {}), device)
@@ -188,6 +193,86 @@ def train_pipeline(config, device):
     # TODO: plot train_losses ?
 
     return model 
+
+
+def train_pipeline_session(config, device):
+    seed_everything(42)
+    
+    train_dataset, val_dataset = get_dataset_split(config)  
+    train_loader = get_loader(config, train_dataset, mode='train')
+    model = get_model(config["model"], config.get("model_params", {}), device)
+    criterion = get_criterion(config)
+    optimizer = get_optimizer(model, config)
+
+   
+    ########
+    # Retrain on the full dataset
+    print(f"\n===== Full Training =====")
+    if config.get("early_stopping", None) is not None:
+        print(f"Estimating number of epochs with early stopping on {config['early_stopping']['validation_size']} of data for a max of {config['early_stopping']['max_epochs']} epochs.")
+        early_stopping = EarlyStopping(patience=config["early_stopping"]["patience"], 
+                                       delta_tolerance=config["early_stopping"]["delta_tolerance"],
+                                       greater_is_better=config["early_stopping"]["greater_is_better"])
+        model = get_model(config["model"], config.get("model_params", {}), device)
+        criterion = get_criterion(config)
+        optimizer = get_optimizer(model, config)
+        #train_subset, val_subset = random_split(dataset, [1 - config["early_stopping"]["validation_size"], config["early_stopping"]["validation_size"]])
+        train_loader = get_loader(config, train_dataset, mode='train')
+        val_loader = get_loader(config, train_dataset, mode='val')
+
+        train_losses = []
+        all_metrics = []
+        for epoch in tqdm(range(config["early_stopping"]["max_epochs"]), desc="Epochs"):
+            avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+            train_losses.append(avg_loss)
+            metrics = evaluate_model(model, val_loader, device)
+            all_metrics.append(metrics)
+            metric_name = config["early_stopping"]["metric"]
+            if early_stopping(metrics[metric_name]):
+                # Set to previous epoch
+                print(f"\nEarly stopping triggered at epoch {epoch + 1}.")
+                break
+        # TODO: plot train_losses ?
+        early_stopping_metrics = [m[metric_name] for m in all_metrics]
+        best_idx = np.argmax(early_stopping_metrics) if config["early_stopping"]["greater_is_better"] else np.argmin(early_stopping_metrics)
+        best_metrics = all_metrics[best_idx]
+        print("\n=== Best Metrics During Early Stopping ===")
+        print(best_metrics)
+        full_training_epochs = best_idx + 1
+    else:
+        print("Skipping early stopping epochs estimation.")
+        print("\n=== Training Test-Val 80/20 ===\n")
+
+        full_training_epochs = config["num_epochs"]
+        train_losses = []
+        for epoch in tqdm(range(full_training_epochs), desc="Epochs"):
+            avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+            train_losses.append(avg_loss)
+    
+        val_loader = get_loader(config, val_dataset, mode='train')
+        metrics = evaluate_model(model, val_loader, device)
+        print(metrics)
+      
+    
+    print("\n=== Full Training ===\n")
+
+
+    dataset = get_dataset(config)
+
+    print(f"Training on the full dataset for {full_training_epochs} epochs.")
+    train_loader = get_loader(config, train_dataset, mode='train')
+    model = get_model(config["model"], config.get("model_params", {}), device)
+    criterion = get_criterion(config)
+    optimizer = get_optimizer(model, config)
+
+    train_losses = []
+    for epoch in tqdm(range(full_training_epochs), desc="Epochs"):
+        avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+        train_losses.append(avg_loss)
+    # TODO: plot train_losses ?
+
+    return model 
+
 
 
 
