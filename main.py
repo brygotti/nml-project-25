@@ -44,7 +44,7 @@ CONFIG = {
         "patience": 10,              # Number of epochs with no improvement after which training will be stopped
         "delta_tolerance": 0.1       # Deltas in F1 score higher than that will be considered as "no improvement" and trigger early stopping
     },
-    "graph_cache_name": "frequency_bands_features",
+    "graph_cache_name": "distances_frequency_bands_features",
     "generate_graph": lambda distances, nodes_order, x: generate_distances_graph(distances, nodes_order), # Set this if you want to work with graphs
     # the generate_graph function should return a Data object with edge_index defined. The signal_transform output should also have 2 dimensions: (n_nodes, n_features)
 }
