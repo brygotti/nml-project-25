@@ -117,13 +117,13 @@ def prepare_batch(batch, device):
         is_list_of_ints = isinstance(batch.y, list) and isinstance(batch.y[0], (int, np.integer))
         if is_list_of_ints:
             batch.y = torch.tensor(batch.y).float().unsqueeze(1).to(device)
-        batch_x = batch
-        batch_y = batch.y
+        x_batch = batch
+        y_batch = batch.y
     else:
         print(batch)
         raise ValueError(f"Unsupported batch type: {type(batch)}. Expected tuple or Data object.")
 
-    return batch_x, batch_y
+    return x_batch, y_batch
     
 
 def get_loader(config, dataset, mode='train'):
