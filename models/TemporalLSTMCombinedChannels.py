@@ -1,6 +1,7 @@
 from typing import OrderedDict
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 class TemporalLSTMCombinedChannels(nn.Module):
     def __init__(self, input_dim=190, hidden_dims=(128, 64), fc2_dim=16, dropout=0.25):
@@ -26,8 +27,10 @@ class TemporalLSTMCombinedChannels(nn.Module):
         out, (h_n, c_n) = self.lstm1(x)  # out shape: [seq_len, hidden_dims[0]]
         out, (h_n, c_n) = self.lstm2(out) # out shape: [seq_len, hidden_dims[1]]
         out = self.fc1(out)
+        out = F.relu(out)
         out = self.dropout(out)
         out = self.fc2(out)
+        out = F.relu(out)
         out = self.fc3(out) # out shape: [seq_len, 1]
         return out
     
