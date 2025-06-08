@@ -105,41 +105,8 @@ def train_pipeline(config, device):
     
     dataset = get_dataset(config)
 
-    if config.get("k_folds", None) is not None:
-        kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
-        all_metrics = []
-        for fold, (train_idx, val_idx) in enumerate(k_fold_by_session(kf, dataset)):
-            model = get_model(config["model"], config.get("model_params", {}), device)
-            criterion = get_criterion(config)
-            optimizer = get_optimizer(model, config)
-
-            print(f"\n===== Fold {fold + 1} =====")
-            # Train
-            train_subset = Subset(dataset, train_idx)
-            train_loader = get_loader(config, train_subset, mode='train')
-            train_losses = []
-            for epoch in tqdm(range(config["num_epochs"]), desc="Epochs"):
-                avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
-                train_losses.append(avg_loss)
-            # TODO: plot train_losses ?
-
-            # Evaluate
-            val_subset = Subset(dataset, val_idx)
-            val_loader = get_loader(config, val_subset, mode='val')
-            metrics = evaluate_model(model, val_loader, device)
-            print(f"Fold {fold + 1} Metrics:", metrics)
-            all_metrics.append(metrics)
-
-        # Aggregate metrics across folds
-        avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
-        print("\n=== Average Metrics Across Folds ===")
-        print(avg_metrics)
-    else:
-        print("Skipping K-fold cross validation. Training directly on the full dataset.")
-
-    # Retrain on the full dataset
-    print(f"\n===== Full Training =====")
     if config.get("early_stopping", None) is not None:
+        print(f"\n===== Early Stopping =====")
         print(f"Estimating number of epochs with early stopping on {config['early_stopping']['validation_size']} of data for a max of {config['early_stopping']['max_epochs']} epochs.")
         early_stopping = EarlyStopping(patience=config["early_stopping"]["patience"], 
                                        delta_tolerance=config["early_stopping"]["delta_tolerance"],
@@ -169,19 +136,53 @@ def train_pipeline(config, device):
         best_metrics = all_metrics[best_idx]
         print("\n=== Best Metrics During Early Stopping ===")
         print(best_metrics)
-        full_training_epochs = best_idx + 1
+        num_epochs = best_idx + 1
     else:
         print("Skipping early stopping epochs estimation.")
-        full_training_epochs = config["num_epochs"]
+        num_epochs = config["num_epochs"]
 
-    print(f"Training on the full dataset for {full_training_epochs} epochs.")
+    if config.get("k_folds", None) is not None:
+        kf = KFold(n_splits=config["k_folds"], shuffle=True, random_state=42)
+        all_metrics = []
+        for fold, (train_idx, val_idx) in enumerate(k_fold_by_session(kf, dataset)):
+            model = get_model(config["model"], config.get("model_params", {}), device)
+            criterion = get_criterion(config)
+            optimizer = get_optimizer(model, config)
+
+            print(f"\n===== Fold {fold + 1} =====")
+            # Train
+            train_subset = Subset(dataset, train_idx)
+            train_loader = get_loader(config, train_subset, mode='train')
+            train_losses = []
+            for epoch in tqdm(range(num_epochs), desc="Epochs"):
+                avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
+                train_losses.append(avg_loss)
+            # TODO: plot train_losses ?
+
+            # Evaluate
+            val_subset = Subset(dataset, val_idx)
+            val_loader = get_loader(config, val_subset, mode='val')
+            metrics = evaluate_model(model, val_loader, device)
+            print(f"Fold {fold + 1} Metrics:", metrics)
+            all_metrics.append(metrics)
+
+        # Aggregate metrics across folds
+        avg_metrics = {k: np.mean([m[k] for m in all_metrics]) for k in all_metrics[0]}
+        print("\n=== Average Metrics Across Folds ===")
+        print(avg_metrics)
+    else:
+        print("Skipping K-fold cross validation. Training directly on the full dataset.")
+
+    # Retrain on the full dataset
+    print(f"\n===== Full Training =====")
+    print(f"Training on the full dataset for {num_epochs} epochs.")
     train_loader = get_loader(config, dataset, mode='train')
     model = get_model(config["model"], config.get("model_params", {}), device)
     criterion = get_criterion(config)
     optimizer = get_optimizer(model, config)
 
     train_losses = []
-    for epoch in tqdm(range(full_training_epochs), desc="Epochs"):
+    for epoch in tqdm(range(num_epochs), desc="Epochs"):
         avg_loss = train_one_epoch(model, criterion, optimizer, train_loader, device)
         train_losses.append(avg_loss)
     # TODO: plot train_losses ?
