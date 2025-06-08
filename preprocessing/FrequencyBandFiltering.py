@@ -2,7 +2,7 @@ import numpy as np
 
 def frequency_bands_features(x: np.ndarray, flatten=True) -> np.ndarray:
     """Implement feature extraction of the following paper:
-    https://link.springer.com/article/10.1007/s40747-021-00627-z
+    https://link.springer.com/article/10.1007/s40747-021-00627-z (Two-layer LSTM network-based prediction of epileptic seizures using EEG spectral features)
     """
     x = np.fft.fft(x, axis=0)
 
