@@ -13,6 +13,7 @@ def lmd_features(x: np.ndarray) -> np.ndarray:
     """
     Implement feature extraction of the following paper:
     https://www.sciencedirect.com/science/article/pii/S0010482520302614#bib18 (Scalp EEG classification using deep Bi-LSTM network for seizure detection)
+    As discussed in the documentation of the model, this preprocessing took too long to run due to the bad implementation of the LMD algorithm in PyLMD.
     """
     x = x.T
     channels = []

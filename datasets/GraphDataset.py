@@ -8,6 +8,9 @@ from tqdm import tqdm
 
 class GraphDataset(InMemoryDataset):
     def __init__(self, root, dataset: EEGDataset, generate_graphs, mode='train'):
+        """
+        Custom dataset for generating graphs from EEG data.
+        """
         self.dataset = dataset
         self.generate_graphs = generate_graphs
         self.mode = mode

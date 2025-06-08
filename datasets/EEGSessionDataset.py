@@ -5,6 +5,13 @@ import numpy as np
 import torch
 
 def group_indices_by_session(clips_df: pd.DataFrame) -> list[list[int]]:
+    """
+    Groups indices of EEG clips by session based on the DataFrame index.
+    Args:
+        clips_df (pd.DataFrame): DataFrame containing EEG clips with indices formatted as 'patient_session_clip' or similar.
+    Returns:
+        list[list[int]]: A list of lists, where each inner list contains indices of clips belonging to the same session.
+    """
     session_map = {}
     for i, idx in enumerate(clips_df.index):
         if isinstance(idx, str):

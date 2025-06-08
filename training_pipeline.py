@@ -18,7 +18,17 @@ from utils import *
 # ===============================
 
 def train_one_epoch(model, criterion, optimizer, loader, device):
-
+    """
+    Train the model for one epoch.
+    Args:
+        model (torch.nn.Module): The model to train.
+        criterion (callable): The loss function.
+        optimizer (torch.optim.Optimizer): The optimizer.
+        loader (DataLoader): The data loader for training data.
+        device (torch.device): The device to run the training on.
+    Returns:
+        float: The average loss for the epoch.
+    """
     model.train()
     running_loss = 0.0
     for batch in loader:
@@ -43,6 +53,13 @@ def train_one_epoch(model, criterion, optimizer, loader, device):
 
 class EarlyStopping:
     def __init__(self, patience, delta_tolerance, greater_is_better):
+        """
+        Early stopping mechanism to stop training when a monitored metric stops improving.
+        Args:
+            patience (int): Number of epochs to wait for improvement before stopping.
+            delta_tolerance (float): Deltas in metric higher than that will be considered as "no improvement" and trigger early stopping
+            greater_is_better (bool): Whether a higher value of the metric is better.
+        """
         self.patience = patience
         self.delta_tolerance = delta_tolerance
         self.greater_is_better = greater_is_better
@@ -66,6 +83,15 @@ class EarlyStopping:
 # ===============================
 
 def evaluate_model(model, loader, device):
+    """
+    Evaluate the model on the validation or test set.
+    Args:
+        model (torch.nn.Module): The model to evaluate.
+        loader (DataLoader): The data loader for validation or test data.
+        device (torch.device): The device to run the evaluation on.
+    Returns:
+        dict: A dictionary containing evaluation metrics (accuracy, precision, recall, f1_score).
+    """
     model.eval()
     y_true, y_pred = [], []
 
@@ -101,6 +127,14 @@ def evaluate_model(model, loader, device):
 # ===============================
 
 def train_pipeline(config, device):
+    """
+    Main training pipeline that handles early stopping, K-fold cross-validation, and final training on the full dataset.
+    Args:
+        config (dict): Configuration dictionary containing model, dataset, training parameters, etc.
+        device (torch.device): The device to run the training on.
+    Returns:
+        torch.nn.Module: The trained model.
+    """
     seed_everything(42)
     
     dataset = get_dataset(config)

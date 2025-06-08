@@ -19,6 +19,11 @@ from torch_geometric.loader import DataLoader as PygDataLoader
 
 
 def seed_everything(seed: int):
+    """
+    Set random seeds for reproducibility across various libraries.
+    Args:
+        seed (int): The seed value to use for random number generation.
+    """
     # Python random module
     random.seed(seed)
     # Numpy random module
@@ -36,6 +41,14 @@ def seed_everything(seed: int):
     torch.backends.cudnn.benchmark = False
 
 def get_dataset(config, mode='train'):
+    """
+    Get the EEG dataset based on the configuration and mode.
+    Args:
+        config (dict): Configuration dictionary containing dataset parameters.
+        mode (str): The mode of the dataset, either 'train', 'val', or 'test'.
+    Returns:
+        The dataset object for the specified mode.
+    """
     clips = pd.read_parquet(Path(config["data_path"]) / f"{mode}/segments.parquet")
     if config.get("cached_preprocessing") is not None:
         dataset = CachedEEGDataset(
@@ -77,6 +90,14 @@ def flatten(lst: list[list[int]]) -> list:
     return sum(lst, [])
 
 def split_dataset_by_session(dataset: EEGDataset | GraphDataset | EEGSessionDataset, lengths):
+    """
+    Splits the dataset by session to avoid data leakage.
+    Args:
+        dataset (EEGDataset | GraphDataset | EEGSessionDataset): The dataset to split.
+        lengths (list[int]): The lengths for each split.
+    Returns:
+        list[Subset]: A list of subsets of the dataset, each corresponding to a split.
+    """
     if isinstance(dataset, EEGSessionDataset):
         # Normal split is ok since EEGSessionDataset already groups by session
         return random_split(dataset, lengths)
@@ -91,6 +112,14 @@ def split_dataset_by_session(dataset: EEGDataset | GraphDataset | EEGSessionData
     return [Subset(dataset, indices) for indices in split_indices]
 
 def k_fold_by_session(kf: KFold, dataset: EEGDataset | GraphDataset | EEGSessionDataset):
+    """
+    Splits the dataset into K folds by session to avoid data leakage.
+    Args:
+        kf (KFold): The KFold object to use for splitting.
+        dataset (EEGDataset | GraphDataset | EEGSessionDataset): The dataset to split.
+    Returns:
+        list[tuple[list[int], list[int]]]: A list of tuples, each containing train and test indices for each fold.
+    """
     if isinstance(dataset, EEGSessionDataset):
         # Normal split is ok since EEGSessionDataset already groups by session
         return kf.split(dataset)
@@ -106,6 +135,14 @@ def k_fold_by_session(kf: KFold, dataset: EEGDataset | GraphDataset | EEGSession
     return split_indices
 
 def prepare_batch(batch, device):
+    """
+    Prepares the batch for training or evaluation by moving it to the specified device and converting types.
+    Args:
+        batch (tuple | list | Data): The batch to prepare, can be a tuple/list of x_batch, y_batch or a PyG Data object.
+        device (torch.device): The device to move the batch to.
+    Returns:
+        tuple: A tuple containing the prepared x_batch and y_batch.
+    """
     if isinstance(batch, (tuple, list)) and len(batch) == 2:
         x_batch, y_batch = batch
         x_batch = x_batch.float().to(device)
@@ -121,12 +158,21 @@ def prepare_batch(batch, device):
         y_batch = batch.y
     else:
         print(batch)
-        raise ValueError(f"Unsupported batch type: {type(batch)}. Expected tuple or Data object.")
+        raise ValueError(f"Unsupported batch type: {type(batch)}. Expected tuple, list or Data object.")
 
     return x_batch, y_batch
     
 
 def get_loader(config, dataset, mode='train'):
+    """
+    Returns a DataLoader for the given dataset and mode.
+    Args:
+        config (dict): Configuration dictionary containing batch size and other parameters.
+        dataset (EEGDataset | GraphDataset | EEGSessionDataset): The dataset to load.
+        mode (str): The mode of the dataset, either 'train', 'val', or 'test'.
+    Returns:
+        DataLoader: A DataLoader for the dataset.
+    """
     if isinstance(dataset[0], Data):
         # If dataset is made of PyG Data objects, use PyG DataLoader
         return PygDataLoader(
@@ -142,9 +188,24 @@ def get_loader(config, dataset, mode='train'):
     )
 
 def get_criterion(config):
+    """
+    Returns the loss function based on the configuration.
+    Args:
+        config (dict): Configuration dictionary containing the criterion function.
+    Returns:
+        callable: The loss function to use.
+    """
     return config["criterion_fn"]()
 
 def get_optimizer(model, config):
+    """
+    Returns the optimizer for the model based on the configuration.
+    Args:
+        model (torch.nn.Module): The model to optimize.
+        config (dict): Configuration dictionary containing optimizer parameters.
+    Returns:
+        torch.optim.Optimizer: The optimizer for the model.
+    """
     if config.get("optimizer") is not None:
         optimizer = config["optimizer"](model.parameters())
     else:
@@ -153,6 +214,14 @@ def get_optimizer(model, config):
     return optimizer
 
 def create_submission(config, model, device, submission_name_csv='submission'):
+    """
+    Generates a Kaggle submission file based on the model's predictions on the test dataset.
+    Args:
+        config (dict): Configuration dictionary containing dataset parameters.
+        model (torch.nn.Module): The trained model to use for predictions.
+        device (torch.device): The device to run the model on.
+        submission_name_csv (str): The name of the submission CSV file to generate.
+    """
     dataset_te = get_dataset(config, mode='test')
 
     # Create DataLoader for the test dataset

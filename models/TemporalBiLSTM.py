@@ -7,6 +7,9 @@ class TemporalBiLSTM(nn.Module):
         """
         Implement Bi-LSTM of the following paper:
         https://www.sciencedirect.com/science/article/pii/S0010482520302614#bib18 (Scalp EEG classification using deep Bi-LSTM network for seizure detection)
+        The preprocessing of this model could not be implemented due to the lack of a good python library for the required algorithm.
+        The model was tested with other preprocessing methods, but resulted in worse performance than the SimpleLSTM model, so it was
+        not included in the final report.
         """
         super().__init__()
         self.lstm = nn.LSTM(
