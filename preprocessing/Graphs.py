@@ -1,14 +1,21 @@
+import numpy as np
 import pandas as pd
 from torch_geometric.data import Data
 import torch
 
-def generate_distances_graph(distances: pd.DataFrame, nodes_order: list[str], epsilon: float = 0.9) -> Data:
+def generate_distances_graph(
+        distances: pd.DataFrame,
+        nodes_order: list[str],
+        x: np.ndarray,
+        epsilon: float = 0.9,
+    ) -> Data:
     """
     Create an epsilon-neighborhood graph from a distance matrix.
     
     Parameters:
         distances (pd.DataFrame): A DataFrame containing the distance matrix with columns 'from', 'to', and 'distance'.
         nodes_order (list[str]): A list of node identifiers in the order they should appear in the graph.
+        x (np.ndarray): The node features, which will be assigned to the graph.
         epsilon (float): The threshold distance to consider for edges.
         
     Returns:
@@ -25,4 +32,5 @@ def generate_distances_graph(distances: pd.DataFrame, nodes_order: list[str], ep
             edges.append([node1, node2])
     
     edge_index = torch.tensor(edges, dtype=torch.long)
-    return Data(edge_index=edge_index.t().contiguous())
+    x = torch.from_numpy(x)
+    return Data(x=x, edge_index=edge_index.t().contiguous())

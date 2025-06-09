@@ -29,9 +29,6 @@ class GraphDataset(InMemoryDataset):
         for i in tqdm(range(len(self.dataset)), desc="Generating graphs"):
             x, y = self.dataset[i]
             graph: Data = self.generate_graphs(distances, nodes_order, x)
-            if isinstance(x, np.ndarray):
-                x = torch.from_numpy(x)
-            graph.x = x
             graph.y = y
             graphs.append(graph)
 
