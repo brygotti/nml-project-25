@@ -138,6 +138,7 @@ def train_pipeline(config, device):
     seed_everything(42)
     
     dataset = get_dataset(config)
+    criterion = get_criterion(config)
 
     if config.get("early_stopping", None) is not None:
         print(f"\n===== Early Stopping =====")
@@ -146,7 +147,6 @@ def train_pipeline(config, device):
                                        delta_tolerance=config["early_stopping"]["delta_tolerance"],
                                        greater_is_better=config["early_stopping"]["greater_is_better"])
         model = get_model(config["model"], config.get("model_params", {}), device)
-        criterion = get_criterion(config)
         optimizer = get_optimizer(model, config)
         train_subset, val_subset = split_dataset_by_session(dataset, [1 - config["early_stopping"]["validation_size"], config["early_stopping"]["validation_size"]])
         train_loader = get_loader(config, train_subset, mode='train')
@@ -180,7 +180,6 @@ def train_pipeline(config, device):
         all_metrics = []
         for fold, (train_idx, val_idx) in enumerate(k_fold_by_session(kf, dataset)):
             model = get_model(config["model"], config.get("model_params", {}), device)
-            criterion = get_criterion(config)
             optimizer = get_optimizer(model, config)
 
             print(f"\n===== Fold {fold + 1} =====")
@@ -212,7 +211,6 @@ def train_pipeline(config, device):
     print(f"Training on the full dataset for {num_epochs} epochs.")
     train_loader = get_loader(config, dataset, mode='train')
     model = get_model(config["model"], config.get("model_params", {}), device)
-    criterion = get_criterion(config)
     optimizer = get_optimizer(model, config)
 
     train_losses = []

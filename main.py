@@ -7,42 +7,28 @@ from training_pipeline import *
 from utils import *
 from preprocessing.Graphs import generate_distances_graph
 
-data_path = "data"
-DATA_ROOT = Path(data_path)
-clips_tr = pd.read_parquet(DATA_ROOT / "train/segments.parquet")
-
-n_negatives = clips_tr['label'].value_counts()[0]
-n_positives = clips_tr['label'].value_counts()[1]
-pos_weight = n_negatives / n_positives
-
-print(f"Number of negatives: {n_negatives}, Number of positives: {n_positives}")
-print(f"Positive weight for loss function: {pos_weight}")
-
-## Add you config file here 
+## Edit this config to change the training parameters
 CONFIG = {
     "k_folds": 5, # Number of folds for K-fold cross validation
     "data_path": "data",
-    "batch_size": 512,
-    "num_epochs": 100,
-    "optimizer": None, # defaults to Adam with learning rate config["lr"]
+    "batch_size": 512, # Can be set to "session" to use each recording session as a batch
+    "num_epochs": 100, # Ignored if early stopping is enabled
+    "optimizer": None, # Defaults to Adam with learning rate config["lr"]
     "lr": 1e-4,
     "model": "GCNN",
-    "model_params": {
-        "conv_channels": (354, 64, 32),
-    },
-    "criterion_fn": lambda: nn.BCEWithLogitsLoss(), #pos_weight=torch.tensor(pos_weight)),
+    "criterion_fn": lambda weight_pos_class: nn.BCEWithLogitsLoss(), # weight_pos_class can be used in the loss function to reweight the loss for the positive class
     "signal_transform": lambda x: fft_filtering(x, transpose=True),
     "early_stopping": {
         "metric": "f1_score",        # Metric to monitor for early stopping
         "greater_is_better": True,   # Whether a higher value of the metric is better
         "validation_size": 0.2,      # Size of validation set for early stopping
         "max_epochs": 10000,         # Maximum epochs to train before early stopping
-        "patience": 10,              # Number of epochs with no improvement after which training will be stopped
+        "patience": 20,              # Number of epochs with no improvement after which training will be stopped
         "delta_tolerance": 0.05      # Deltas in F1 score higher than that will be considered as "no improvement" and trigger early stopping
     },
     "graph_cache_name": "distances_fft_filtering",
     "generate_graph": lambda distances, nodes_order, x: generate_distances_graph(distances, nodes_order), # Set this if you want to work with graphs
-    # the generate_graph function should return a Data object with edge_index defined. The signal_transform output should also have 2 dimensions: (n_nodes, n_features)
+    # The generate_graph function should return a Data object with edge_index defined. The signal_transform output should also have 2 dimensions: (n_nodes, n_features)
 }
 
 if __name__ == "__main__":

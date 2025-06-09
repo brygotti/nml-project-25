@@ -195,7 +195,15 @@ def get_criterion(config):
     Returns:
         callable: The loss function to use.
     """
-    return config["criterion_fn"]()
+    clips_tr = pd.read_parquet(Path(config["data_path"]) / "train/segments.parquet")
+
+    n_negatives = clips_tr['label'].value_counts()[0]
+    n_positives = clips_tr['label'].value_counts()[1]
+    pos_weight = n_negatives / n_positives
+
+    print(f"Number of negatives: {n_negatives}, Number of positives: {n_positives}")
+    print(f"Positive weight for loss function: {pos_weight}")
+    return config["criterion_fn"](pos_weight)
 
 def get_optimizer(model, config):
     """

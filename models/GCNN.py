@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch_geometric.nn import GCNConv, global_mean_pool
 
 class GCNN(torch.nn.Module):
-    def __init__(self, conv_channels=(18, 64, 32), fc_dims=(32, 16), dropout=0.3):
+    def __init__(self, conv_channels=(354, 64, 32), fc_dims=(32, 16), dropout=0.3):
         """
         Implements the GCNN used in the following paper:
         https://www.sciencedirect.com/science/article/pii/S0169260722003327#bib0026 (A graph convolutional neural network for the automated detection of seizures in the neonatal EEG)
