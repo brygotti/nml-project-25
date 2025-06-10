@@ -3,7 +3,7 @@ from models.TemporalBiLSTM import TemporalBiLSTM
 from models.TemporalLSTMCombinedChannels import TemporalLSTMCombinedChannels
 from models.GCNN import GCNN
 from models.Conformer import Conformer
-from models.GraphSage import GraphSage
+# from models.GraphSage import GraphSage
 from torchinfo import summary
 from models.EEGNet import EEGNet
 from models.EEGGAT import EEGGAT
