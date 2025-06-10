@@ -25,6 +25,10 @@ def get_model(model_name='SimpleLSTM', model_params=None, device=None):
         model = Conformer(**model_params)
     elif model_name == 'GraphSage': 
         model = GraphSage(**model_params)
+    elif model_name == 'EEGNet':
+        model = EEGNet(**model_params)
+    elif model_name == 'EEGGAT':
+        model = EEGGAT(**model_params)
 
     else:
         raise ValueError(f"Unsupported model: {model_name}")
