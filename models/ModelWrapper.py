@@ -3,6 +3,7 @@ from models.TemporalBiLSTM import TemporalBiLSTM
 from models.TemporalLSTMCombinedChannels import TemporalLSTMCombinedChannels
 from models.GCNN import GCNN
 from models.Conformer import Conformer
+from models.GraphSageLSTM import GraphSageLSTM
 from torchinfo import summary
 
 
@@ -20,6 +21,9 @@ def get_model(model_name='SimpleLSTM', model_params=None, device=None):
         model = GCNN(**model_params)
     elif model_name == 'Conformer': 
         model = Conformer(**model_params)
+    elif model_name == 'GraphSageLSTM': 
+        model = GraphSageLSTM(**model_params)
+
     else:
         raise ValueError(f"Unsupported model: {model_name}")
     
