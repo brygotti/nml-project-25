@@ -17,6 +17,8 @@ from torch import optim
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader as PygDataLoader
 
+from scipy.signal import butter, filtfilt
+
 
 def seed_everything(seed: int):
     """
@@ -76,12 +78,12 @@ def get_dataset(config, mode='train'):
         if not isinstance(dataset, EEGDataset):
             # TODO: we can add support for EEGSessionDataset in the future
             raise ValueError("Graph generation is only supported for EEGDataset, not other datasets like EEGSessionDataset. Please do not use 'session' batch size if you want to generate a graph.")
-        
         dataset = GraphDataset(
             root=config["graph_cache_name"],
             dataset=dataset,
             generate_graphs=config["generate_graph"],
-            mode=mode
+            mode=mode,
+            model_name=config["model"]
         )
 
     return dataset
@@ -275,3 +277,7 @@ def create_submission(config, model, device, submission_name_csv='submission'):
     # Save the DataFrame to a CSV file without an index
     submission_df.to_csv(f"{submission_name_csv}.csv", index=False)
     print(f"Kaggle submission file generated: {submission_name_csv}.csv")
+
+def bandpass_filter(signal, low=0.5, high=70, fs=1000):
+    b, a = butter(4, [low / (fs / 2), high / (fs / 2)], btype='band')
+    return filtfilt(b, a, signal, axis=0)
