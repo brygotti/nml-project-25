@@ -140,3 +140,6 @@ CONFIG = {
     "generate_graph": lambda row, electrodes, positions_df, base_path, test: generate_single_graph(row, electrodes, positions_df, base_path, test),
 }
 ```
+
+### Iterative Gated Graph Convolutional Network
+Due to the high complexity of this model, it could not be adapted to the pipeline. A custom training script for this model, as well as the model and preprocessing code can be found in the `IGCN` directory.
