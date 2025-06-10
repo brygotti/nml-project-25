@@ -10,12 +10,12 @@ from preprocessing.Graphs import generate_distances_graph, generate_single_graph
 ## Edit this config to change the training parameters
 CONFIG = {
     "k_folds": 5, # Number of folds for K-fold cross validation
-    "data_path": "/home/ogut/data",
-    "batch_size": 256, # Can be set to "session" to use each recording session as a batch
+    "data_path": "data",
+    "batch_size": 512, # Can be set to "session" to use each recording session as a batch
     "num_epochs": 100, # Ignored if early stopping is enabled
     "optimizer": None, # Defaults to Adam with learning rate config["lr"]
-    "lr": 2e-4,
-    "model": "GraphSageLSTM",
+    "lr": 1e-4,
+    "model": "GCNN",
     "criterion_fn": lambda weight_pos_class: nn.BCEWithLogitsLoss(), # weight_pos_class can be used in the loss function to reweight the loss for the positive class
     "early_stopping": {
         "metric": "f1_score",        # Metric to monitor for early stopping
@@ -25,8 +25,8 @@ CONFIG = {
         "patience": 10,              # Number of epochs with no improvement after which training will be stopped
         "delta_tolerance": 0.05      # Deltas in F1 score higher than that will be considered as "no improvement" and trigger early stopping
     },
-    "graph_cache_name": "",
-    "generate_graph": lambda row, electrodes, pos, path : generate_single_graph(row, electrodes, pos, path), # Set this if you want to work with graphs
+    "graph_cache_name": "distances_fft_filtering",
+    "generate_graph": lambda distances, nodes_order, x: generate_distances_graph(distances, nodes_order, fft_filtering(x, transpose=True)), # Set this if you want to work with graphs
     # The generate_graph function should return a Data object with edge_index and x defined.
 }
 

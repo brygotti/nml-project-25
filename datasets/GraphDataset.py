@@ -70,7 +70,7 @@ class GraphDataset(InMemoryDataset):
                     print(f"[Skip idx {idx}] ❌ Error during graph generation: {e}")
                     continue
 
-        if self.model_name == "GraphSagePooling":
+        if self.model_name == "GraphSage":
             for idx in tqdm(range(len(self.dataset.clips_df)), desc="Generating graphs"):
                 row = self.dataset.clips_df.iloc[idx]
 
