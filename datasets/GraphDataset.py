@@ -35,57 +35,36 @@ class GraphDataset(InMemoryDataset):
         # Read data into huge `Data` list.
         graphs = []
         distances = pd.read_csv(Path(self.dataset.signals_root.parts[0]) / "distances_3d.csv")
-        electrodes = sorted(set(distances['from']) | set(distances['to']))
-
-        positions_df = pd.DataFrame.from_dict(standard_10_20_coords, orient='index', columns=['x', 'y', 'z'])
-        positions_df.index.name = 'name'
-        positions_df = positions_df.loc[electrodes]  # align order
-
-        train_path = Path(self.dataset.signals_root.parts[0]) / "train" if self.mode == 'train' else "test"
         
-        if self.model_name == "GCNN":
+        if self.model_name == "EEGAT" or self.model_name == "GraphSage":
+            electrodes = sorted(set(distances['from']) | set(distances['to']))
+
+            positions_df = pd.DataFrame.from_dict(standard_10_20_coords, orient='index', columns=['x', 'y', 'z'])
+            positions_df.index.name = 'name'
+            positions_df = positions_df.loc[electrodes]  # align order
+
+            train_path = Path(self.dataset.signals_root.parts[0]) / "train" if self.mode == 'train' else "test"
+            for idx in tqdm(range(len(self.dataset.clips_df)), desc="Generating graphs"):
+                row = self.dataset.clips_df.iloc[idx]
+                try:
+                    graph = self.generate_graphs(
+                        row=row,
+                        electrodes=electrodes,
+                        positions_df=positions_df,
+                        base_path=train_path,
+                        test=(self.mode == 'test')
+                    )
+                    if graph is not None:
+                        graphs.append(graph)
+                except Exception as e:
+                    print(f"[Skip idx {idx}] ❌ Error during graph generation: {e}")
+                    continue
+        else:
             nodes_order = pd.read_parquet(self.dataset.signals_root / self.dataset.clips_df.iloc[0]["signals_path"]).columns.to_list()
             for i in tqdm(range(len(self.dataset)), desc="Generating graphs"):
                 x, y = self.dataset[i]
                 graph: Data = self.generate_graphs(distances, nodes_order, x)
                 graph.y = y
                 graphs.append(graph)
-
-        
-        if self.model_name == "EEGAT" or self.model_name == "GraphSage":
-            for idx in tqdm(range(len(self.dataset.clips_df)), desc="Generating graphs"):
-                row = self.dataset.clips_df.iloc[idx]
-
-                try:
-                    graph = self.generate_graphs(
-                        row=row,
-                        electrodes=electrodes,
-                        positions_df=positions_df,
-                        base_path=train_path,
-                        test=(self.mode == 'test')
-                    )
-                    if graph is not None:
-                        graphs.append(graph)
-                except Exception as e:
-                    print(f"[Skip idx {idx}] ❌ Error during graph generation: {e}")
-                    continue
-
-        if self.model_name == "GraphSage":
-            for idx in tqdm(range(len(self.dataset.clips_df)), desc="Generating graphs"):
-                row = self.dataset.clips_df.iloc[idx]
-
-                try:
-                    graph = self.generate_graphs(
-                        row=row,
-                        electrodes=electrodes,
-                        positions_df=positions_df,
-                        base_path=train_path,
-                        test=(self.mode == 'test')
-                    )
-                    if graph is not None:
-                        graphs.append(graph)
-                except Exception as e:
-                    print(f"[Skip idx {idx}] ❌ Error during graph generation: {e}")
-                    continue
 
         self.save(graphs, self.processed_paths[0])
