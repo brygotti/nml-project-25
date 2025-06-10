@@ -70,4 +70,22 @@ class GraphDataset(InMemoryDataset):
                     print(f"[Skip idx {idx}] ❌ Error during graph generation: {e}")
                     continue
 
+        if self.model_name == "GraphSage":
+            for idx in tqdm(range(len(self.dataset.clips_df)), desc="Generating graphs"):
+                row = self.dataset.clips_df.iloc[idx]
+
+                try:
+                    graph = self.generate_graphs(
+                        row=row,
+                        electrodes=electrodes,
+                        positions_df=positions_df,
+                        base_path=train_path,
+                        test=(self.mode == 'test')
+                    )
+                    if graph is not None:
+                        graphs.append(graph)
+                except Exception as e:
+                    print(f"[Skip idx {idx}] ❌ Error during graph generation: {e}")
+                    continue
+
         self.save(graphs, self.processed_paths[0])

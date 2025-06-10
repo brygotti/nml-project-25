@@ -2,11 +2,15 @@ import torch
 import torch.nn as nn
 from preprocessing.LMD import lmd_features
 from preprocessing.FrequencyBandFiltering import frequency_bands_features
-from preprocessing.FFTTransform import fft_filtering
+from preprocessing.FFTTransform import fft_filtering, time_filtering
 from training_pipeline import *
 from utils import *
+<<<<<<< HEAD
 from preprocessing.Graphs import generate_distances_graph
 from preprocessing.Graphs import build_graph_dataset, generate_single_graph
+=======
+from preprocessing.Graphs import generate_distances_graph, generate_single_graph
+>>>>>>> d0d71477988a202e437ab01d438deea6cbaa8284
 
 ## Edit this config to change the training parameters
 CONFIG = {
