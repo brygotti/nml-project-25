@@ -1,0 +1,9 @@
+/var/spool/slurmd/job2668929/slurm_script: line 14: activate: No such file or directory
+Traceback (most recent call last):
+  File "/home/jrenard/NetML/nml-project-25/IGCN/IGCN_simple/main_igcn_simple.py", line 6, in <module>
+    from IGCNTrainer import *
+  File "/home/jrenard/NetML/nml-project-25/IGCN/IGCN_simple/IGCNTrainer.py", line 12, in <module>
+    from Loss import *
+  File "/home/jrenard/NetML/nml-project-25/IGCN/IGCN_simple/Loss.py", line 6, in <module>
+    class FocalLoss(nn.Module):
+NameError: name 'nn' is not defined. Did you mean: 'np'?
