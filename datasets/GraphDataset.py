@@ -52,7 +52,7 @@ class GraphDataset(InMemoryDataset):
                 graphs.append(graph)
 
         
-        if self.model_name == "EEGAT":
+        if self.model_name == "EEGAT" or self.model_name == "GraphSage":
             for idx in tqdm(range(len(self.dataset.clips_df)), desc="Generating graphs"):
                 row = self.dataset.clips_df.iloc[idx]
 
