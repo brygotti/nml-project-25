@@ -116,7 +116,7 @@ CONFIG = {
 }
 ```
 
-### Graph SAGE LSTM
+### Graph SAGE
 ```python
 
 CONFIG = {
